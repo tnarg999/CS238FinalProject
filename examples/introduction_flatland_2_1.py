@@ -9,6 +9,8 @@ from flatland.envs.schedule_generators import sparse_schedule_generator
 # We also include a renderer because we want to visualize what is going on in the environment
 from flatland.utils.rendertools import RenderTool, AgentRenderVariant
 
+import numpy as np
+
 # This is an introduction example for the Flatland 2.1.* version.
 # Changes and highlights of this version include
 # - Stochastic events (malfunctions)
@@ -107,7 +109,18 @@ class RandomAgent:
         :param state: input is the observation of the agent
         :return: returns an action
         """
-        return 2  # np.random.choice(np.arange(self.action_size))
+        if type(state) is tuple:
+            print("1st Map Size")
+            arr1 = np.array(state[0])
+            print(arr1.shape)
+            print("2nd Map Size")
+            arr2 = np.array(state[1])
+            print(arr2.shape)
+            print("3rd Map Size")
+            arr3 = np.array(state[2])
+            print(arr3.shape)
+
+        return 1  # np.random.choice(np.arange(self.action_size))
 
     def step(self, memories):
         """
@@ -241,7 +254,7 @@ score = 0
 # Run episode
 frame_step = 0
 
-for step in range(100):
+for step in range(100000):
     # Chose an action for each agent in the environment
     for a in range(env.get_num_agents()):
         action = controller.act(observations[a])
