@@ -10,6 +10,8 @@ from flatland.envs.schedule_generators import sparse_schedule_generator
 from flatland.utils.rendertools import RenderTool, AgentRenderVariant
 
 import numpy as np
+import random
+import collections
 
 # This is an introduction example for the Flatland 2.1.* version.
 # Changes and highlights of this version include
@@ -98,29 +100,73 @@ env_renderer = RenderTool(env, gl="PILSVG",
 # time.sleep(2)
 # Import your own Agent or use RLlib to train agents on Flatland
 # As an example we use a random agent instead
+def chooseGreedyAction(Q, s):
+    best_reward = max(Q[s])
+    best_actions = []
+    for ii in range(len(Q[s])):
+        reward = Q[s][ii]
+        if reward == best_reward:
+            best_actions.append(ii)
+    return np.random.choice(best_actions)
+
+# epsilon-greedy exploration strategy
+def chooseAction(Q, s):
+    eps = 0.2
+    rand_val = random.random()
+    a = random.randint(0, 4)
+    if eps - rand_val < 0:
+        a = chooseGreedyAction(Q, s)
+    return a
+
+def totuple(a):
+    try:
+        return tuple(totuple(i) for i in a)
+    except TypeError:
+        return a
+
 class RandomAgent:
 
-    def __init__(self, state_size, action_size):
+    def __init__(self, idx, state_size, action_size):
+        self.id = idx
         self.state_size = state_size
         self.action_size = action_size
+        self.Q = collections.defaultdict(lambda: np.zeros(action_size))
 
-    def act(self, state):
+    def act(self, observation):
         """
-        :param state: input is the observation of the agent
+        :param observation: input is the observation of the agent
         :return: returns an action
         """
-        if type(state) is tuple:
-            print("1st Map Size")
-            arr1 = np.array(state[0])
-            print(arr1.shape)
-            print("2nd Map Size")
-            arr2 = np.array(state[1])
-            print(arr2.shape)
-            print("3rd Map Size")
-            arr3 = np.array(state[2])
-            print(arr3.shape)
+        if type(observation) is tuple:
+            obs_tuple = totuple(observation)
+            a = chooseAction(self.Q, obs_tuple)
+            print(a)
+            return a
+        else:
+            return 0
 
-        return 1  # np.random.choice(np.arange(self.action_size))
+        # if type(observation) is tuple:
+        #     print("SHAPE")
+        #     print(len(observation))
+        #     print("TRANSITIONS")
+        #     print(len(observation[0]))
+        #     print(len(observation[0][0]))
+        #     print(len(observation[0][0][0]))
+        #     print("DIRECTIONS")
+        #     print(len(observation[1]))
+        #     print(len(observation[1][0]))
+        #     print(len(observation[1][0][0]))
+        #     print("POSITIONS")
+        #     print(len(observation[2]))
+        #     print(len(observation[2][0]))
+        #     print(len(observation[2][0][0]))
+            # transitions = state[0]
+            # directions = state[1]
+            # positions = state[2]
+            # print(state[2])
+        # else:
+        #     return 0
+
 
     def step(self, memories):
         """
@@ -129,6 +175,18 @@ class RandomAgent:
         :param memories: SARS Tuple to be
         :return:
         """
+
+        # SARSA which runs
+        gamma = 0.95
+        alpha = 0.2
+        obs_memories = totuple(memories)
+        state = obs_memories[0]
+        action = obs_memories[1]
+        reward = obs_memories[2]
+        next_state = obs_memories[3]
+
+        next_action = chooseAction(self.Q, state)
+        self.Q[state][action] += alpha * (reward + gamma * self.Q[next_state][next_action] - self.Q[state][action])
         return
 
     def save(self, filename):
@@ -141,7 +199,10 @@ class RandomAgent:
 
 
 # Initialize the agent with the parameters corresponding to the environment and observation_builder
-controller = RandomAgent(218, env.action_space[0])
+controllers = []
+for a in range(env.get_num_agents()):
+    controller = RandomAgent(a, 218, env.action_space[0])
+    controllers.append(controller)
 
 # We start by looking at the information of each agent
 # We can see the task assigned to the agent by looking at
@@ -254,9 +315,10 @@ score = 0
 # Run episode
 frame_step = 0
 
-for step in range(100000):
+for step in range(100):
     # Chose an action for each agent in the environment
     for a in range(env.get_num_agents()):
+        controller = controllers[a]
         action = controller.act(observations[a])
         action_dict.update({a: action})
 
@@ -269,6 +331,7 @@ for step in range(100000):
     frame_step += 1
     # Update replay buffer and train agent
     for a in range(env.get_num_agents()):
+        controller = controllers[a]
         controller.step((observations[a], action_dict[a], all_rewards[a], next_obs[a], done[a]))
         score += all_rewards[a]
 
