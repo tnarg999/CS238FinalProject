@@ -3,12 +3,25 @@ Changelog
 
 Changes since Flatland 2.0.0
 --------------------------
+### Changes in `EnvAgent`
+- class `EnvAgentStatic` was removed, so there is only class `EnvAgent` left which should simplify the handling of agents. The member `self.agents_static` of `RailEnv` was therefore also removed. Old Scence saved as pickle files cannot be loaded anymore.
+
+### Changes in malfunction behavior
+- agent attribute `next_malfunction`is not used anymore, it will be removed fully in future versions.
+- `break_agent()` function is introduced which induces malfunctions in agent according to poisson process
+- `_fix_agent_after_malfunction()` fixes agents after attribute `malfunction == 0`
+- Introduced the concept of malfunction generators. Here you can add different malfunction models in future updates. Currently it only loads from files and parameters.
 
 ### Changes in `Environment`
 - moving of member variable `distance_map_computed` to new class `DistanceMap`
 
 ### Changes in rail generator and `RailEnv`
 - renaming of `distance_maps` into `distance_map`
+- by default the reset method of RailEnv is not called in the constructor of RailEnv anymore (compliance for OpenAI Gym). Therefore the reset method needs to be called after the creation of a RailEnv object
+- renaming of parameters RailEnv.reset(): from `regen_rail` to `regenerate_rail`, from `replace_agents` to `regenerate_schedule`
+
+### Changes in schedule generation
+- return value of schedule generator has changed to the named tuple `Schedule`. From the point of view of a consumer, nothing has changed, this is just a type hint which is introduced where the attributes of `Schedule` have names.
 
 Changes since Flatland 1.0.0
 --------------------------

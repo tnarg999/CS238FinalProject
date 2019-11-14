@@ -49,11 +49,9 @@ class RandomAgent:
 
 
 def test_multi_speed_init():
-    env = RailEnv(width=50,
-                  height=50,
+    env = RailEnv(width=50, height=50,
                   rail_generator=complex_rail_generator(nr_start_goal=10, nr_extra=1, min_dist=8, max_dist=99999,
-                                                        seed=1),
-                  schedule_generator=complex_schedule_generator(),
+                                                        seed=1), schedule_generator=complex_schedule_generator(),
                   number_of_agents=5)
     # Initialize the agent with the parameters corresponding to the environment and observation_builder
     agent = RandomAgent(218, 4)
@@ -97,13 +95,10 @@ def test_multi_speed_init():
 def test_multispeed_actions_no_malfunction_no_blocking():
     """Test that actions are correctly performed on cell exit for a single agent."""
     rail, rail_map = make_simple_rail()
-    env = RailEnv(width=rail_map.shape[1],
-                  height=rail_map.shape[0],
-                  rail_generator=rail_from_grid_transition_map(rail),
-                  schedule_generator=random_schedule_generator(),
-                  number_of_agents=1,
-                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()),
-                  )
+    env = RailEnv(width=rail_map.shape[1], height=rail_map.shape[0], rail_generator=rail_from_grid_transition_map(rail),
+                  schedule_generator=random_schedule_generator(), number_of_agents=1,
+                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()))
+    env.reset()
 
     set_penalties_for_replay(env)
     test_config = ReplayConfig(
@@ -200,13 +195,10 @@ def test_multispeed_actions_no_malfunction_no_blocking():
 def test_multispeed_actions_no_malfunction_blocking():
     """The second agent blocks the first because it is slower."""
     rail, rail_map = make_simple_rail()
-    env = RailEnv(width=rail_map.shape[1],
-                  height=rail_map.shape[0],
-                  rail_generator=rail_from_grid_transition_map(rail),
-                  schedule_generator=random_schedule_generator(),
-                  number_of_agents=2,
-                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()),
-                  )
+    env = RailEnv(width=rail_map.shape[1], height=rail_map.shape[0], rail_generator=rail_from_grid_transition_map(rail),
+                  schedule_generator=random_schedule_generator(), number_of_agents=2,
+                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()))
+    env.reset()
     set_penalties_for_replay(env)
     test_configs = [
         ReplayConfig(
@@ -387,13 +379,10 @@ def test_multispeed_actions_no_malfunction_blocking():
 def test_multispeed_actions_malfunction_no_blocking():
     """Test on a single agent whether action on cell exit work correctly despite malfunction."""
     rail, rail_map = make_simple_rail()
-    env = RailEnv(width=rail_map.shape[1],
-                  height=rail_map.shape[0],
-                  rail_generator=rail_from_grid_transition_map(rail),
-                  schedule_generator=random_schedule_generator(),
-                  number_of_agents=1,
-                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()),
-                  )
+    env = RailEnv(width=rail_map.shape[1], height=rail_map.shape[0], rail_generator=rail_from_grid_transition_map(rail),
+                  schedule_generator=random_schedule_generator(), number_of_agents=1,
+                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()))
+    env.reset()
 
     set_penalties_for_replay(env)
     test_config = ReplayConfig(
@@ -434,6 +423,12 @@ def test_multispeed_actions_malfunction_no_blocking():
                 reward=env.step_penalty * 0.5  # recovered: running at speed 0.5
             ),
             Replay(
+                position=(3, 8),
+                direction=Grid4TransitionsEnum.WEST,
+                action=None,
+                reward=env.step_penalty * 0.5  # running at speed 0.5
+            ),
+            Replay(
                 position=(3, 7),
                 direction=Grid4TransitionsEnum.WEST,
                 action=RailEnvActions.MOVE_FORWARD,
@@ -443,70 +438,64 @@ def test_multispeed_actions_malfunction_no_blocking():
                 position=(3, 7),
                 direction=Grid4TransitionsEnum.WEST,
                 action=None,
-                reward=env.step_penalty * 0.5  # running at speed 0.5
-            ),
-            Replay(
-                position=(3, 6),
-                direction=Grid4TransitionsEnum.WEST,
-                action=RailEnvActions.MOVE_FORWARD,
                 set_malfunction=2,  # recovers in two steps from now!
                 malfunction=2,
                 reward=env.step_penalty * 0.5  # step penalty for speed 0.5 when malfunctioning
             ),
             # agent recovers in this step; since we're at the beginning, we provide a different action although we're broken!
             Replay(
-                position=(3, 6),
+                position=(3, 7),
                 direction=Grid4TransitionsEnum.WEST,
-                action=RailEnvActions.MOVE_LEFT,
+                action=None,
                 malfunction=1,
                 reward=env.step_penalty * 0.5  # running at speed 0.5
             ),
             Replay(
-                position=(3, 6),
+                position=(3, 7),
                 direction=Grid4TransitionsEnum.WEST,
                 action=None,
                 reward=env.step_penalty * 0.5  # running at speed 0.5
             ),
             Replay(
-                position=(4, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 6),
+                direction=Grid4TransitionsEnum.WEST,
                 action=RailEnvActions.STOP_MOVING,
                 reward=env.stop_penalty + env.step_penalty * 0.5  # stopping and step penalty for speed 0.5
             ),
             Replay(
-                position=(4, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 6),
+                direction=Grid4TransitionsEnum.WEST,
                 action=RailEnvActions.STOP_MOVING,
                 reward=env.step_penalty * 0.5  # step penalty for speed 0.5 while stopped
             ),
             Replay(
-                position=(4, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 6),
+                direction=Grid4TransitionsEnum.WEST,
                 action=RailEnvActions.MOVE_FORWARD,
                 reward=env.start_penalty + env.step_penalty * 0.5  # starting and running at speed 0.5
             ),
             Replay(
-                position=(4, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 6),
+                direction=Grid4TransitionsEnum.WEST,
                 action=None,
                 reward=env.step_penalty * 0.5  # running at speed 0.5
             ),
             # DO_NOTHING keeps moving!
             Replay(
-                position=(5, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 5),
+                direction=Grid4TransitionsEnum.WEST,
                 action=RailEnvActions.DO_NOTHING,
                 reward=env.step_penalty * 0.5  # running at speed 0.5
             ),
             Replay(
-                position=(5, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 5),
+                direction=Grid4TransitionsEnum.WEST,
                 action=None,
                 reward=env.step_penalty * 0.5  # running at speed 0.5
             ),
             Replay(
-                position=(6, 6),
-                direction=Grid4TransitionsEnum.SOUTH,
+                position=(3, 4),
+                direction=Grid4TransitionsEnum.WEST,
                 action=RailEnvActions.MOVE_FORWARD,
                 reward=env.step_penalty * 0.5  # running at speed 0.5
             ),
@@ -524,13 +513,10 @@ def test_multispeed_actions_malfunction_no_blocking():
 def test_multispeed_actions_no_malfunction_invalid_actions():
     """Test that actions are correctly performed on cell exit for a single agent."""
     rail, rail_map = make_simple_rail()
-    env = RailEnv(width=rail_map.shape[1],
-                  height=rail_map.shape[0],
-                  rail_generator=rail_from_grid_transition_map(rail),
-                  schedule_generator=random_schedule_generator(),
-                  number_of_agents=1,
-                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()),
-                  )
+    env = RailEnv(width=rail_map.shape[1], height=rail_map.shape[0], rail_generator=rail_from_grid_transition_map(rail),
+                  schedule_generator=random_schedule_generator(), number_of_agents=1,
+                  obs_builder_object=TreeObsForRailEnv(max_depth=2, predictor=ShortestPathPredictorForRailEnv()))
+    env.reset()
 
     set_penalties_for_replay(env)
     test_config = ReplayConfig(

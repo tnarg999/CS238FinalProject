@@ -35,7 +35,11 @@ class SingleAgentNavigationObs(ObservationBuilder):
     def get(self, handle: int = 0) -> List[int]:
         agent = self.env.agents[handle]
 
-        possible_transitions = self.env.rail.get_transitions(*agent.position, agent.direction)
+        if agent.position:
+            possible_transitions = self.env.rail.get_transitions(*agent.position, agent.direction)
+        else:
+            possible_transitions = self.env.rail.get_transitions(*agent.initial_position, agent.direction)
+
         num_transitions = np.count_nonzero(possible_transitions)
 
         # Start from the current orientation, and see which transitions are available;
@@ -72,13 +76,10 @@ def main(args):
         else:
             assert False, "unhandled option"
 
-    env = RailEnv(width=7,
-                  height=7,
+    env = RailEnv(width=7, height=7,
                   rail_generator=complex_rail_generator(nr_start_goal=10, nr_extra=1, min_dist=5, max_dist=99999,
-                                                        seed=1),
-                  schedule_generator=complex_schedule_generator(),
-                  number_of_agents=1,
-                  obs_builder_object=SingleAgentNavigationObs())
+                                                        seed=1), schedule_generator=complex_schedule_generator(),
+                  number_of_agents=1, obs_builder_object=SingleAgentNavigationObs())
 
     obs, info = env.reset()
     env_renderer = RenderTool(env, gl="PILSVG")

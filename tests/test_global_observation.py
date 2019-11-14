@@ -1,6 +1,7 @@
 import numpy as np
 
 from flatland.envs.agent_utils import EnvAgent, RailAgentStatus
+from flatland.envs.malfunction_generators import malfunction_from_params
 from flatland.envs.observations import GlobalObsForRailEnv
 from flatland.envs.rail_env import RailEnv, RailEnvActions
 from flatland.envs.rail_generators import sparse_rail_generator
@@ -22,16 +23,14 @@ def test_get_global_observation():
                         1. / 3.: 0.25,  # Slow commuter train
                         1. / 4.: 0.25}  # Slow freight train
 
-    env = RailEnv(width=50,
-                  height=50,
-                  rail_generator=sparse_rail_generator(max_num_cities=6,
-                                                       max_rails_between_cities=4,
-                                                       seed=15,
-                                                       grid_mode=False
-                                                       ),
-                  schedule_generator=sparse_schedule_generator(speed_ration_map),
-                  number_of_agents=number_of_agents, stochastic_data=stochastic_data,  # Malfunction data generator
+    env = RailEnv(width=50, height=50, rail_generator=sparse_rail_generator(max_num_cities=6,
+                                                                            max_rails_between_cities=4,
+                                                                            seed=15,
+                                                                            grid_mode=False
+                                                                            ),
+                  schedule_generator=sparse_schedule_generator(speed_ration_map), number_of_agents=number_of_agents,
                   obs_builder_object=GlobalObsForRailEnv())
+    env.reset()
 
     obs, all_rewards, done, _ = env.step({i: RailEnvActions.MOVE_FORWARD for i in range(number_of_agents)})
     for i in range(len(env.agents)):

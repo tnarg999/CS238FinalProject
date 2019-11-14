@@ -1,9 +1,13 @@
+import numpy as np
+
 # In Flatland you can use custom observation builders and predicitors
 # Observation builders generate the observation needed by the controller
 # Preditctors can be used to do short time prediction which can help in avoiding conflicts in the network
+from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 from flatland.envs.observations import GlobalObsForRailEnv
 # First of all we import the Flatland rail environment
 from flatland.envs.rail_env import RailEnv
+from flatland.envs.rail_env import RailEnvActions
 from flatland.envs.rail_generators import sparse_rail_generator
 from flatland.envs.schedule_generators import sparse_schedule_generator
 # We also include a renderer because we want to visualize what is going on in the environment
@@ -29,14 +33,14 @@ import collections
 # The railway infrastructure can be build using any of the provided generators in env/rail_generators.py
 # Here we use the sparse_rail_generator with the following parameters
 
-width = 50  # With of map
-height = 50  # Height of map
-nr_trains = 20  # Number of trains that have an assigned task in the env
-cities_in_map = 7  # Number of cities where agents can start or end
+width = 16 * 7  # With of map
+height = 9 * 7  # Height of map
+nr_trains = 50  # Number of trains that have an assigned task in the env
+cities_in_map = 20  # Number of cities where agents can start or end
 seed = 14  # Random seed
 grid_distribution_of_cities = False  # Type of city distribution, if False cities are randomly placed
 max_rails_between_cities = 2  # Max number of tracks allowed between cities. This is number of entry point to a city
-max_rail_in_cities = 3  # Max number of parallel tracks within a city, representing a realistic trainstation
+max_rail_in_cities = 6  # Max number of parallel tracks within a city, representing a realistic trainstation
 
 rail_generator = sparse_rail_generator(max_num_cities=cities_in_map,
                                        seed=seed,
@@ -62,12 +66,10 @@ schedule_generator = sparse_schedule_generator(speed_ration_map)
 # We can furthermore pass stochastic data to the RailEnv constructor which will allow for stochastic malfunctions
 # during an episode.
 
-stochastic_data = {'prop_malfunction': 0.3,  # Percentage of defective agents
-                   'malfunction_rate': 30,  # Rate of malfunction occurence
-                   'min_duration': 3,  # Minimal duration of malfunction
-                   'max_duration': 20  # Max duration of malfunction
-                   }
-
+stochastic_data = MalfunctionParameters(malfunction_rate=10000,  # Rate of malfunction occurence
+                                        min_duration=15,  # Minimal duration of malfunction
+                                        max_duration=50  # Max duration of malfunction
+                                        )
 # Custom observation builder without predictor
 observation_builder = GlobalObsForRailEnv()
 
@@ -80,17 +82,17 @@ env = RailEnv(width=width,
               rail_generator=rail_generator,
               schedule_generator=schedule_generator,
               number_of_agents=nr_trains,
-              stochastic_data=stochastic_data,  # Malfunction data generator
               obs_builder_object=observation_builder,
-              remove_agents_at_target=True  # Removes agents at the end of their journey to make space for others
-              )
+              malfunction_generator_and_process_data=malfunction_from_params(stochastic_data),
+              remove_agents_at_target=True)
+env.reset()
 
 # Initiate the renderer
 env_renderer = RenderTool(env, gl="PILSVG",
-                          agent_render_variant=AgentRenderVariant.AGENT_SHOWS_OPTIONS_AND_BOX,
+                          agent_render_variant=AgentRenderVariant.ONE_STEP_BEHIND,
                           show_debug=False,
-                          screen_height=1000,  # Adjust these parameters to fit your resolution
-                          screen_width=1000)  # Adjust these parameters to fit your resolution
+                          screen_height=600,  # Adjust these parameters to fit your resolution
+                          screen_width=800)  # Adjust these parameters to fit your resolution
 
 
 # The first thing we notice is that some agents don't have feasible paths to their target.
@@ -166,7 +168,6 @@ class RandomAgent:
             # print(state[2])
         # else:
         #     return 0
-
 
     def step(self, memories):
         """
@@ -277,9 +278,8 @@ print("========================================")
 
 for agent_idx, agent in enumerate(env.agents):
     print(
-        "Agent {} will malfunction = {} at a rate of {}, the next malfunction will occur in {} step. Agent OK = {}".format(
-            agent_idx, agent.malfunction_data['malfunction_rate'] > 0, agent.malfunction_data['malfunction_rate'],
-            agent.malfunction_data['next_malfunction'], agent.malfunction_data['malfunction'] < 1))
+        "Agent {} is OK = {}".format(
+            agent_idx, agent.malfunction_data['malfunction'] < 1))
 
 # Now that you have seen these novel concepts that were introduced you will realize that agents don't need to take
 # an action at every time step as it will only change the outcome when actions are chosen at cell entry.
@@ -315,7 +315,7 @@ score = 0
 # Run episode
 frame_step = 0
 
-for step in range(100):
+for step in range(500):
     # Chose an action for each agent in the environment
     for a in range(env.get_num_agents()):
         controller = controllers[a]
@@ -328,6 +328,7 @@ for step in range(100):
     next_obs, all_rewards, done, _ = env.step(action_dict)
 
     env_renderer.render_env(show=True, show_observations=False, show_predictions=False)
+    env_renderer.gl.save_image('./misc/Fames2/flatland_frame_{:04d}.png'.format(step))
     frame_step += 1
     # Update replay buffer and train agent
     for a in range(env.get_num_agents()):
@@ -338,5 +339,4 @@ for step in range(100):
     observations = next_obs.copy()
     if done['__all__']:
         break
-
     print('Episode: Steps {}\t Score = {}'.format(step, score))

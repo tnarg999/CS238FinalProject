@@ -7,11 +7,11 @@ import numpy as np
 
 from flatland.core.grid.grid4_utils import get_new_position
 from flatland.core.transition_map import GridTransitionMap
-from flatland.envs.agent_utils import EnvAgentStatic
+from flatland.envs.agent_utils import EnvAgent
+from flatland.envs.schedule_utils import Schedule
 
 AgentPosition = Tuple[int, int]
-ScheduleGeneratorProduct = Tuple[List[AgentPosition], List[AgentPosition], List[AgentPosition], List[float]]
-ScheduleGenerator = Callable[[GridTransitionMap, int, Optional[Any]], ScheduleGeneratorProduct]
+ScheduleGenerator = Callable[[GridTransitionMap, int, Optional[Any], Optional[int]], Schedule]
 
 
 def speed_initialization_helper(nb_agents: int, speed_ratio_map: Mapping[float, float] = None,
@@ -43,8 +43,27 @@ def speed_initialization_helper(nb_agents: int, speed_ratio_map: Mapping[float, 
 
 
 def complex_schedule_generator(speed_ratio_map: Mapping[float, float] = None, seed: int = 1) -> ScheduleGenerator:
-    def generator(rail: GridTransitionMap, num_agents: int, hints: Any = None, num_resets: int = 0):
+    """
 
+    Generator used to generate the levels of Round 1 in the Flatland Challenge. It can only be used together
+    with complex_rail_generator. It places agents at end and start points provided by the rail generator.
+    It assigns speeds to the different agents according to the speed_ratio_map
+    :param speed_ratio_map: Speed ratios of all agents. They are probabilities of all different speeds and have to
+            add up to 1.
+    :param seed: Initiate random seed generator
+    :return:
+    """
+
+    def generator(rail: GridTransitionMap, num_agents: int, hints: Any = None, num_resets: int = 0) -> Schedule:
+        """
+
+        The generator that assigns tasks to all the agents
+        :param rail: Rail infrastructure given by the rail_generator
+        :param num_agents: Number of agents to include in the schedule
+        :param hints: Hints provided by the rail_generator These include positions of start/target positions
+        :param num_resets: How often the generator has been reset.
+        :return: Returns the generator to the rail constructor
+        """
         _runtime_seed = seed + num_resets
         np.random.seed(_runtime_seed)
 
@@ -59,22 +78,41 @@ def complex_schedule_generator(speed_ratio_map: Mapping[float, float] = None, se
         else:
             speeds = [1.0] * len(agents_position)
 
-        return agents_position, agents_direction, agents_target, speeds
+        return Schedule(agent_positions=agents_position, agent_directions=agents_direction,
+                        agent_targets=agents_target, agent_speeds=speeds, agent_malfunction_rates=None)
 
     return generator
 
 
 def sparse_schedule_generator(speed_ratio_map: Mapping[float, float] = None, seed: int = 1) -> ScheduleGenerator:
+    """
 
-    def generator(rail: GridTransitionMap, num_agents: int, hints: Any = None, num_resets: int = 0):
+    This is the schedule generator which is used for Round 2 of the Flatland challenge. It produces schedules
+    to railway networks provided by sparse_rail_generator.
+    :param speed_ratio_map: Speed ratios of all agents. They are probabilities of all different speeds and have to
+            add up to 1.
+    :param seed: Initiate random seed generator
+    """
+
+    def generator(rail: GridTransitionMap, num_agents: int, hints: Any = None, num_resets: int = 0) -> Schedule:
+        """
+
+        The generator that assigns tasks to all the agents
+        :param rail: Rail infrastructure given by the rail_generator
+        :param num_agents: Number of agents to include in the schedule
+        :param hints: Hints provided by the rail_generator These include positions of start/target positions
+        :param num_resets: How often the generator has been reset.
+        :return: Returns the generator to the rail constructor
+        """
 
         _runtime_seed = seed + num_resets
         np.random.seed(_runtime_seed)
 
         train_stations = hints['train_stations']
-        agent_start_targets_cities = hints['agent_start_targets_cities']
+        city_positions = hints['city_positions']
+        city_orientation = hints['city_orientations']
         max_num_agents = hints['num_agents']
-        # city_orientations = hints['city_orientations']
+        city_orientations = hints['city_orientations']
         if num_agents > max_num_agents:
             num_agents = max_num_agents
             warnings.warn("Too many agents! Changes number of agents.")
@@ -90,9 +128,9 @@ def sparse_schedule_generator(speed_ratio_map: Mapping[float, float] = None, see
                 tries += 1
                 infeasible_agent = False
                 # Set target for agent
-                city_idx = np.random.randint(len(agent_start_targets_cities))
-                start_city = agent_start_targets_cities[city_idx][0]
-                target_city = agent_start_targets_cities[city_idx][1]
+                city_idx = np.random.choice(len(city_positions), 2, replace=False)
+                start_city = city_idx[0]
+                target_city = city_idx[1]
 
                 start_idx = np.random.choice(np.arange(len(train_stations[start_city])))
                 target_idx = np.random.choice(np.arange(len(train_stations[target_city])))
@@ -105,7 +143,8 @@ def sparse_schedule_generator(speed_ratio_map: Mapping[float, float] = None, see
                 while target[1] % 2 != 1:
                     target_idx = np.random.choice(np.arange(len(train_stations[target_city])))
                     target = train_stations[target_city][target_idx]
-                possible_orientations = [agent_start_targets_cities[city_idx][2], (agent_start_targets_cities[city_idx][2] + 2) % 4 ]
+                possible_orientations = [city_orientation[start_city],
+                                         (city_orientation[start_city] + 2) % 4]
                 agent_orientation = np.random.choice(possible_orientations)
                 if not rail.check_path_exists(start[0], agent_orientation, target[0]):
                     agent_orientation = (agent_orientation + 2) % 4
@@ -125,7 +164,8 @@ def sparse_schedule_generator(speed_ratio_map: Mapping[float, float] = None, see
         else:
             speeds = [1.0] * len(agents_position)
 
-        return agents_position, agents_direction, agents_target, speeds, None
+        return Schedule(agent_positions=agents_position, agent_directions=agents_direction,
+                        agent_targets=agents_target, agent_speeds=speeds, agent_malfunction_rates=None)
 
     return generator
 
@@ -147,7 +187,7 @@ def random_schedule_generator(speed_ratio_map: Optional[Mapping[float, float]] =
     """
 
     def generator(rail: GridTransitionMap, num_agents: int, hints: Any = None,
-                num_resets: int = 0) -> ScheduleGeneratorProduct:
+                  num_resets: int = 0) -> Schedule:
         _runtime_seed = seed + num_resets
 
         np.random.seed(_runtime_seed)
@@ -158,11 +198,13 @@ def random_schedule_generator(speed_ratio_map: Optional[Mapping[float, float]] =
                 if rail.get_full_transitions(r, c) > 0:
                     valid_positions.append((r, c))
         if len(valid_positions) == 0:
-            return [], [], [], []
+            return Schedule(agent_positions=[], agent_directions=[],
+                            agent_targets=[], agent_speeds=[], agent_malfunction_rates=None)
 
         if len(valid_positions) < num_agents:
             warnings.warn("schedule_generators: len(valid_positions) < num_agents")
-            return [], [], [], []
+            return Schedule(agent_positions=[], agent_directions=[],
+                            agent_targets=[], agent_speeds=[], agent_malfunction_rates=None)
 
         agents_position_idx = [i for i in np.random.choice(len(valid_positions), num_agents, replace=False)]
         agents_position = [valid_positions[agents_position_idx[i]] for i in range(num_agents)]
@@ -220,7 +262,8 @@ def random_schedule_generator(speed_ratio_map: Optional[Mapping[float, float]] =
                         np.random.choice(len(valid_starting_directions), 1)[0]]
 
         agents_speed = speed_initialization_helper(num_agents, speed_ratio_map, seed=_runtime_seed)
-        return agents_position, agents_direction, agents_target, agents_speed, None
+        return Schedule(agent_positions=agents_position, agent_directions=agents_direction,
+                        agent_targets=agents_target, agent_speeds=agents_speed, agent_malfunction_rates=None)
 
     return generator
 
@@ -240,7 +283,7 @@ def schedule_from_file(filename, load_from_package=None) -> ScheduleGenerator:
     """
 
     def generator(rail: GridTransitionMap, num_agents: int, hints: Any = None,
-                  num_resets: int = 0) -> ScheduleGeneratorProduct:
+                  num_resets: int = 0) -> Schedule:
         if load_from_package is not None:
             from importlib_resources import read_binary
             load_data = read_binary(load_from_package, filename)
@@ -248,24 +291,19 @@ def schedule_from_file(filename, load_from_package=None) -> ScheduleGenerator:
             with open(filename, "rb") as file_in:
                 load_data = file_in.read()
         data = msgpack.unpackb(load_data, use_list=False, encoding='utf-8')
-
-        # agents are always reset as not moving
-        if len(data['agents_static'][0]) > 5:
-            agents_static = [EnvAgentStatic(d[0], d[1], d[2], d[3], d[4], d[5]) for d in data["agents_static"]]
+        if "agents_static" in data:
+            agents = EnvAgent.load_legacy_static_agent(data["agents_static"])
         else:
-            agents_static = [EnvAgentStatic(d[0], d[1], d[2], d[3]) for d in data["agents_static"]]
+            agents = [EnvAgent(*d[0:12]) for d in data["agents"]]
 
         # setup with loaded data
-        agents_position = [a.initial_position for a in agents_static]
-        agents_direction = [a.direction for a in agents_static]
-        agents_target = [a.target for a in agents_static]
-        if len(data['agents_static'][0]) > 5:
-            agents_speed = [a.speed_data['speed'] for a in agents_static]
-            agents_malfunction = [a.malfunction_data['malfunction_rate'] for a in agents_static]
-        else:
-            agents_speed = None
-            agents_malfunction = None
-        return agents_position, agents_direction, agents_target, agents_speed, agents_malfunction
+        agents_position = [a.initial_position for a in agents]
+        agents_direction = [a.direction for a in agents]
+        agents_target = [a.target for a in agents]
+        agents_speed = [a.speed_data['speed'] for a in agents]
+        agents_malfunction = [a.malfunction_data['malfunction_rate'] for a in agents]
+
+        return Schedule(agent_positions=agents_position, agent_directions=agents_direction,
+                        agent_targets=agents_target, agent_speeds=agents_speed, agent_malfunction_rates=None)
 
     return generator
-
