@@ -1,5 +1,3 @@
-import numpy as np
-
 # In Flatland you can use custom observation builders and predicitors
 # Observation builders generate the observation needed by the controller
 # Preditctors can be used to do short time prediction which can help in avoiding conflicts in the network
@@ -7,7 +5,6 @@ from flatland.envs.malfunction_generators import malfunction_from_params, Malfun
 from flatland.envs.observations import GlobalObsForRailEnv
 # First of all we import the Flatland rail environment
 from flatland.envs.rail_env import RailEnv
-from flatland.envs.rail_env import RailEnvActions
 from flatland.envs.rail_generators import sparse_rail_generator
 from flatland.envs.schedule_generators import sparse_schedule_generator
 # We also include a renderer because we want to visualize what is going on in the environment
@@ -33,14 +30,14 @@ import collections
 # The railway infrastructure can be build using any of the provided generators in env/rail_generators.py
 # Here we use the sparse_rail_generator with the following parameters
 
-width = 16 * 7  # With of map
-height = 9 * 7  # Height of map
-nr_trains = 50  # Number of trains that have an assigned task in the env
-cities_in_map = 20  # Number of cities where agents can start or end
-seed = 14  # Random seed
+width = 25  # With of map
+height = 25  # Height of map
+nr_trains = 2  # Number of trains that have an assigned task in the env
+cities_in_map = 7  # Number of cities where agents can start or end
+seed = 1  # Random seed
 grid_distribution_of_cities = False  # Type of city distribution, if False cities are randomly placed
-max_rails_between_cities = 2  # Max number of tracks allowed between cities. This is number of entry point to a city
-max_rail_in_cities = 6  # Max number of parallel tracks within a city, representing a realistic trainstation
+max_rails_between_cities = 1  # Max number of tracks allowed between cities. This is number of entry point to a city
+max_rail_in_cities = 1  # Max number of parallel tracks within a city, representing a realistic trainstation
 
 rail_generator = sparse_rail_generator(max_num_cities=cities_in_map,
                                        seed=seed,
@@ -142,7 +139,6 @@ class RandomAgent:
         if type(observation) is tuple:
             obs_tuple = totuple(observation)
             a = chooseAction(self.Q, obs_tuple)
-            print(a)
             return a
         else:
             return 0
@@ -178,7 +174,7 @@ class RandomAgent:
         """
 
         # SARSA which runs
-        gamma = 0.95
+        gamma = 1
         alpha = 0.2
         obs_memories = totuple(memories)
         state = obs_memories[0]
@@ -328,7 +324,7 @@ for step in range(500):
     next_obs, all_rewards, done, _ = env.step(action_dict)
 
     env_renderer.render_env(show=True, show_observations=False, show_predictions=False)
-    env_renderer.gl.save_image('./misc/Fames2/flatland_frame_{:04d}.png'.format(step))
+    # env_renderer.gl.save_image('./misc/Fames2/flatland_frame_{:04d}.png'.format(step))
     frame_step += 1
     # Update replay buffer and train agent
     for a in range(env.get_num_agents()):
