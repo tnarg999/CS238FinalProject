@@ -130,6 +130,8 @@ class RandomAgent:
         self.state_size = state_size
         self.action_size = action_size
         self.Q = collections.defaultdict(lambda: np.zeros(action_size))
+        self.N = collections.defaultdict(lambda: collections.defaultdict(lambda: np.zeros(action_size)))
+        self.P = collections.defaultdict(lambda: np.zeros(action_size))
 
     def act(self, observation):
         """
@@ -183,7 +185,24 @@ class RandomAgent:
         next_state = obs_memories[3]
 
         next_action = chooseAction(self.Q, state)
-        self.Q[state][action] += alpha * (reward + gamma * self.Q[next_state][next_action] - self.Q[state][action])
+        self.N[state][next_state][action] += 1
+        self.P[state][action] += reward
+
+        sumN = 0
+
+        for ns in self.N[state].keys():
+            sumN += self.N[state][ns][action]
+
+        R = self.P[state][action] / sumN
+        sumNs = 0
+        for ns in self.N[state].keys():
+            T = self.N[state][ns][action] / sumN
+            V = max(self.Q[ns])
+            sumNs += T*V
+
+        self.Q[state][action] += R + gamma * sumNs
+
+        # self.Q[state][action] += alpha * (reward + gamma * self.Q[next_state][next_action] - self.Q[state][action])
         return
 
     def save(self, filename):
@@ -311,7 +330,11 @@ score = 0
 # Run episode
 frame_step = 0
 
-for step in range(500):
+
+# for trials in range(5):
+#     env.reset(False, False)
+#     env_renderer.reset()
+for step in range(100):
     # Chose an action for each agent in the environment
     for a in range(env.get_num_agents()):
         controller = controllers[a]
